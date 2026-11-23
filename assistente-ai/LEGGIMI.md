@@ -17,21 +17,15 @@ pip install -r requirements.txt
 
 ## Avvio
 
-Imposta la chiave e avvia l'app.
+Nel terminale, dentro la cartella `assistente-ai`, scrivi:
 
-**Mac / Linux**
 ```bash
-export ANTHROPIC_API_KEY="la-tua-chiave"
 streamlit run app.py
 ```
 
-**Windows (PowerShell)**
-```powershell
-$env:ANTHROPIC_API_KEY="la-tua-chiave"
-streamlit run app.py
-```
+Si apre il browser con la chat. In alto nella barra a sinistra c'è il campo **🔑 Chiave API di Anthropic**: incolla lì la tua chiave e premi Invio. La chiave resta solo in memoria finché l'app è aperta, quindi la prossima volta andrà incollata di nuovo. Non condividerla mai e non salvarla nei file del progetto.
 
-Si apre il browser con la chat. Non condividere mai la chiave e non salvarla nei file del progetto.
+**Facoltativo**: se non vuoi incollarla ogni volta, puoi impostarla nel terminale prima di avviare (`export ANTHROPIC_API_KEY="la-tua-chiave"` su Mac/Linux, `$env:ANTHROPIC_API_KEY="la-tua-chiave"` su Windows). In quel caso il campo non compare.
 
 ## Come si usa
 

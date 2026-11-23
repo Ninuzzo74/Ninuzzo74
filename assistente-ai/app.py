@@ -8,6 +8,7 @@ Avvio:  streamlit run app.py
 """
 
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -138,7 +139,9 @@ def invia(conv: dict, imp: dict, testo: str, area_risposta) -> None:
     # Si inviano i messaggi esattamente come salvati (senza i campi locali).
     messaggi_api = [{"role": m["role"], "content": m["content"]} for m in conv["messaggi"]]
 
-    client = anthropic.Anthropic()
+    # La chiave incollata nell'app ha la precedenza; altrimenti si usa ANTHROPIC_API_KEY.
+    chiave = st.session_state.get("chiave_api", "").strip()
+    client = anthropic.Anthropic(api_key=chiave) if chiave else anthropic.Anthropic()
     testo_parziale = ""
     with client.beta.messages.stream(
         model=imp["modello"],
@@ -190,6 +193,14 @@ if "conv" not in st.session_state:
 conv = st.session_state.conv
 
 with st.sidebar:
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        st.text_input(
+            "🔑 Chiave API di Anthropic", type="password", key="chiave_api",
+            placeholder="sk-ant-...",
+            help="Incollala qui. Resta solo in memoria finché l'app è aperta: non viene salvata.",
+        )
+        if not st.session_state.get("chiave_api"):
+            st.info("Incolla la tua chiave API qui sopra per iniziare.")
     if st.button("➕ Nuova conversazione", use_container_width=True):
         st.session_state.conv = nuova_conversazione(imp)
         st.rerun()
