@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Conto Unificato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@500;600&display=swap">
+<style>
+/* Layout: banda superiore con saldo, griglia di KPI, poi pannelli di analisi in due colonne che si impilano su mobile */
+:root {
+  --bg: #f3f5f8; --panel: #ffffff; --panel-2: #eef1f6; --fg: #121a26; --muted: #5b6778; --line: #dde2ea;
+  --accent: #1f5fd1; --accent-soft: rgba(31,95,209,.14); --good: #13804f; --good-soft: rgba(19,128,79,.14);
+  --bad: #c8342b; --bad-soft: rgba(200,52,43,.14); --warn: #b26b00;
+  --f-display: "Sora", "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d121b; --panel: #141b27; --panel-2: #1a2333; --fg: #e7ecf4; --muted: #93a0b4; --line: #263247;
+  --accent: #6f9ff5; --accent-soft: rgba(111,159,245,.18); --good: #39c184; --good-soft: rgba(57,193,132,.16);
+  --bad: #f2675c; --bad-soft: rgba(242,103,92,.16); --warn: #e0a640; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d121b; --panel: #141b27; --panel-2: #1a2333; --fg: #e7ecf4; --muted: #93a0b4; --line: #263247;
+  --accent: #6f9ff5; --accent-soft: rgba(111,159,245,.18); --good: #39c184; --good-soft: rgba(57,193,132,.16);
+  --bad: #f2675c; --bad-soft: rgba(242,103,92,.16); --warn: #e0a640; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.good { color: var(--good); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Barra superiore */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.logo { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); display: grid; place-items: center; color: var(--panel); font: 600 15px var(--f-display); flex: none; }
+.brand h1 { font: 600 20px/1.15 var(--f-display); margin: 0; letter-spacing: -.01em; }
+.brand p { margin: 0; color: var(--muted); font-size: 12px; }
+.live { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; cursor: pointer; color: var(--muted); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+
+/* Hero saldo */
+.hero { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr); gap: 20px; }
+.hero-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.big { font: 500 clamp(30px, 4.4vw, 44px)/1.05 var(--f-num); letter-spacing: -.02em; }
+.chg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font: 500 13px var(--f-num); }
+.pill.good { background: var(--good-soft); } .pill.bad { background: var(--bad-soft); }
+.sum { margin: 6px 0 0; color: var(--muted); max-width: 46ch; }
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.kpi { background: var(--panel); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi .v { font: 500 18px var(--f-num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi .s { font-size: 12px; color: var(--muted); }
+
+/* Pannelli */
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.c12 { grid-column: span 12; } .c8 { grid-column: span 8; } .c6 { grid-column: span 6; } .c4 { grid-column: span 4; }
+.card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.card h2 { font: 600 15px var(--f-display); margin: 0; text-wrap: balance; }
+.card-h p { margin: 0; font-size: 12px; color: var(--muted); }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart .tick text { fill: var(--muted); font: 11px var(--f-num); }
+.chart .tick line { stroke: var(--line); }
+.chart .domain { stroke: var(--line); }
+.chart .vlab { fill: var(--fg); font: 11px var(--f-num); }
+.tt { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.18); border-radius: 8px; padding: 8px 10px; font-size: 12px; min-width: 170px; z-index: 5; }
+.tt .h { color: var(--muted); margin-bottom: 4px; }
+.tt .r { display: flex; justify-content: space-between; gap: 14px; font-family: var(--f-num); }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; margin: 0; }
+.stats div { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.stats dt { color: var(--muted); }
+.stats dd { margin: 0; font-family: var(--f-num); text-align: right; white-space: nowrap; }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.side { background: var(--panel-2); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.side .t { display: flex; justify-content: space-between; align-items: baseline; }
+.side .t b { font: 600 13px var(--f-display); text-transform: uppercase; letter-spacing: .05em; }
+.side .v { font: 500 20px var(--f-num); }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.side .m { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+.tw { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td.r, th.r { text-align: right; }
+th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+th[aria-sort] button::after { content: ""; border: 4px solid transparent; }
+th[aria-sort="descending"] button::after { border-top-color: currentColor; margin-top: 4px; }
+th[aria-sort="ascending"] button::after { border-bottom-color: currentColor; margin-bottom: 4px; }
+.side-tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font: 500 11px var(--f-num); text-transform: uppercase; }
+.side-tag.buy { background: var(--accent-soft); color: var(--accent); }
+.side-tag.sell { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+.mcell { position: relative; }
+.mcell i { position: absolute; inset: 4px auto 4px 0; border-radius: 3px; opacity: .9; }
+.mcell span { position: relative; }
+
+.tbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tbar input, .tbar select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.tbar input { flex: 1 1 180px; }
+.pager { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.pager .btns { display: flex; gap: 6px; }
+.pager button:disabled { opacity: .4; cursor: default; }
+.empty { color: var(--muted); padding: 18px 10px; text-align: center; }
+
+.mask { display: inline-block; width: 64px; height: 12px; vertical-align: middle; border-radius: 3px; background: repeating-linear-gradient(135deg, var(--line) 0 4px, var(--panel-2) 4px 8px); }
+td.r .mask { width: 44px; }
+.priv { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-size: 12px; color: var(--muted); }
+.priv svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+.note { font-size: 12px; color: var(--muted); }
+.note summary { cursor: pointer; font-weight: 500; }
+.note p { max-width: 75ch; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
+  .c8, .c6, .c4 { grid-column: span 12; }
+}
+@media (max-width: 520px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats { grid-template-columns: 1fr; }
+  .split { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card, .hero { animation: rise .35s ease-out both; }
+  @keyframes rise { from { transform: translateY(6px); } to { transform: none; } }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">CU</div>
+      <div>
+        <h1>Conto Unificato</h1>
+        <p><span class="live"><span class="dot" aria-hidden="true"></span>MetaTrader 5</span> · Dati simulati · aggiornato <span id="upd" class="num"></span></p>
+      </div>
+    </div>
+    <div class="controls">
+      <span class="priv" id="priv-badge" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Dati sensibili nascosti</span>
+      <div class="seg" role="group" aria-label="Periodo" id="period">
+        <button type="button" data-p="1">1M</button>
+        <button type="button" data-p="3">3M</button>
+        <button type="button" data-p="all" aria-pressed="true">Tutto</button>
+      </div>
+      <button type="button" class="btn" id="theme" aria-label="Cambia tema">Tema</button>
+    </div>
+  </header>
+
+  <section class="hero" aria-label="Situazione del conto">
+    <div class="hero-main">
+      <span class="lbl">Equity</span>
+      <div class="big num" id="h-equity">—</div>
+      <div class="chg"><span class="pill" id="h-pl">—</span><span class="muted" id="h-plp"></span></div>
+      <p class="sum" id="h-sum"></p>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span class="lbl">Saldo</span><span class="v" id="k-bal">—</span><span class="s">Operazioni chiuse</span></div>
+      <div class="kpi"><span class="lbl">Flottante</span><span class="v" id="k-float">—</span><span class="s" id="k-float-s"></span></div>
+      <div class="kpi"><span class="lbl">Max drawdown</span><span class="v" id="k-dd">—</span><span class="s" id="k-dd-s"></span></div>
+      <div class="kpi"><span class="lbl">Win rate</span><span class="v" id="k-wr">—</span><span class="s" id="k-wr-s"></span></div>
+      <div class="kpi"><span class="lbl">Profit factor</span><span class="v" id="k-pf">—</span><span class="s">Profitti / perdite</span></div>
+      <div class="kpi"><span class="lbl">Rendimento medio</span><span class="v" id="k-exp">—</span><span class="s">Per operazione</span></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="card c12" id="equity">
+      <div class="card-h">
+        <h2>Andamento del saldo</h2>
+        <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>Saldo di fine giornata</span><span><i class="sw" style="background:var(--muted)"></i>Saldo a inizio periodo</span></div>
+      </div>
+      <div class="chart" id="ch-equity" style="min-height:280px"></div>
+      <div class="card-h"><p>Drawdown: distanza dal massimo precedente</p></div>
+      <div class="chart" id="ch-dd" style="min-height:110px"></div>
+    </section>
+
+    <section class="card c8" id="mesi">
+      <div class="card-h"><h2>Risultati per mese</h2><p>Rendimento sul saldo di inizio mese</p></div>
+      <div class="tw"><table>
+        <thead><tr><th>Mese</th><th class="r">Operazioni</th><th class="r">Win rate</th><th class="r">Profitto</th><th class="r" style="width:34%">Rendimento</th></tr></thead>
+        <tbody id="t-months"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card c4" id="statistiche">
+      <div class="card-h"><h2>Statistiche</h2><p id="st-period"></p></div>
+      <dl class="stats" id="stats" style="grid-template-columns:1fr"></dl>
+    </section>
+
+    <section class="card c6" id="simboli">
+      <div class="card-h"><h2>Profitto per strumento</h2><p>Operazioni chiuse nel periodo</p></div>
+      <div class="chart" id="ch-sym"></div>
+    </section>
+
+    <section class="card c6" id="direzione">
+      <div class="card-h"><h2>Buy e sell a confronto</h2><p>Quota di operazioni in profitto</p></div>
+      <div class="split" id="dir"></div>
+      <div class="card-h"><h2>Distribuzione dei risultati</h2><p>Numero di operazioni per fascia di profitto</p></div>
+      <div class="chart" id="ch-hist"></div>
+    </section>
+
+    <section class="card c6" id="giorni">
+      <div class="card-h"><h2>Profitto per giorno della settimana</h2><p>Per giorno di chiusura</p></div>
+      <div class="chart" id="ch-wd"></div>
+    </section>
+
+    <section class="card c6" id="orari">
+      <div class="card-h"><h2>Profitto per ora di chiusura</h2><p>Ora del server</p></div>
+      <div class="chart" id="ch-hr"></div>
+    </section>
+
+    <section class="card c12" id="aperte">
+      <div class="card-h"><h2>Posizioni aperte</h2><p id="open-sum"></p></div>
+      <div class="tw"><table>
+        <thead><tr><th>Ticket</th><th>Aperta</th><th>Simbolo</th><th>Tipo</th><th class="r">Lotti</th><th class="r">Prezzo apertura</th><th class="r">Prezzo attuale</th><th class="r">Flottante</th></tr></thead>
+        <tbody id="t-open"></tbody>
+      </table></div>
+    </section>
+
+    <section class="card c12" id="storico">
+      <div class="card-h"><h2>Storico operazioni</h2><p id="hist-count"></p></div>
+      <div class="tbar">
+        <input type="search" id="q" placeholder="Cerca simbolo o ticket" aria-label="Cerca simbolo o ticket">
+        <select id="f-type" aria-label="Tipo">
+          <option value="">Buy e sell</option><option value="buy">Solo buy</option><option value="sell">Solo sell</option>
+        </select>
+        <select id="f-res" aria-label="Esito">
+          <option value="">Tutti gli esiti</option><option value="w">In profitto</option><option value="l">In perdita</option>
+        </select>
+        <button type="button" class="btn" id="csv">Scarica CSV</button>
+      </div>
+      <div class="tw"><table>
+        <thead><tr id="t-head">
+          <th data-k="t"><button type="button">Ticket</button></th>
+          <th data-k="o"><button type="button">Apertura</button></th>
+          <th data-k="c" aria-sort="descending"><button type="button">Chiusura</button></th>
+          <th data-k="s"><button type="button">Simbolo</button></th>
+          <th data-k="ty"><button type="button">Tipo</button></th>
+          <th data-k="l" class="r"><button type="button">Lotti</button></th>
+          <th data-k="d" class="r"><button type="button">Durata</button></th>
+          <th data-k="p" class="r"><button type="button">Profitto</button></th>
+        </tr></thead>
+        <tbody id="t-hist"></tbody>
+      </table></div>
+      <div class="pager"><span id="pg-info"></span><div class="btns"><button type="button" class="btn" id="pg-prev">Precedenti</button><button type="button" class="btn" id="pg-next">Successive</button></div></div>
+    </section>
+  </div>
+
+  <details class="note">
+    <summary>Come si legge questa pagina</summary>
+    <p>Il conto unificato somma due conti MetaTrader in un unico capitale di 20.000 €. Tutte le operazioni chiuse dei due conti formano un solo storico in ordine di chiusura, e saldo, drawdown e statistiche sono calcolati su quello.</p>
+    <p>Equity: saldo più il risultato flottante delle posizioni aperte. Max drawdown: la discesa più ampia del saldo da un massimo precedente, in percentuale di quel massimo. Profit factor: profitti lordi divisi per perdite lorde. Rendimento medio: profitto medio per operazione (expectancy). Sharpe: rendimento medio giornaliero diviso per la sua deviazione standard, annualizzato su 252 giorni.</p>
+    <p>Tutti i numeri di questo prototipo sono simulati.</p>
+  </details>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+const START = 20000;
+const UPDATED = '2026-11-24T17:00';
+// [ticket, simbolo, tipo, lotti, apertura, chiusura, profitto]
+const RAW = __TRADES__;
+// Posizioni aperte: { t, o, s, ty, l, po, pc, p } — i campi nascosti arrivano come null
+const OPEN = __OPEN__;
+// Cosa è stato tolto dal file in fase di generazione (vedi genera_dashboard.py)
+const PRIVACY = __PRIVACY__;
+
+const T = RAW.map(([t, s, ty, l, o, c, p]) => ({ t, s, ty, l, o, c, p, dt: new Date(c + ':00Z'), d: o ? (new Date(c + ':00Z') - new Date(o + ':00Z')) / 60000 : null }));
+T.sort((a, b) => a.dt - b.dt);
+
+const L = d3.formatLocale({ decimal: ',', thousands: '.', grouping: [3], currency: ['', ' €'] });
+const TL = d3.timeFormatLocale({
+  dateTime: '%A %e %B %Y, %X', date: '%d/%m/%Y', time: '%H:%M:%S', periods: ['AM', 'PM'],
+  days: ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'],
+  shortDays: ['dom','lun','mar','mer','gio','ven','sab'],
+  months: ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'],
+  shortMonths: ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic']
+});
+const f = {
+  eur: L.format('$,.2f'), eur0: L.format('$,.0f'), n2: L.format(',.2f'), n1: L.format(',.1f'), int: L.format(',d'),
+  day: TL.utcFormat('%e %b %Y'), dayTime: TL.utcFormat('%d/%m/%y %H:%M'), month: TL.utcFormat('%B %Y'), mon: TL.utcFormat('%b'), mon2: TL.utcFormat('%b %y')
+};
+const sgn = (v) => (v > 0 ? '+' : v < 0 ? '−' : '');
+const sEur = (v) => sgn(v) + f.eur(Math.abs(v));
+const sEur0 = (v) => sgn(v) + f.eur0(Math.abs(v));
+const sPct = (v) => sgn(v) + f.n2(Math.abs(v)) + '%';
+const cls = (v) => (v > 0 ? 'good' : v < 0 ? 'bad' : '');
+const dur = (m) => (m < 60 ? Math.round(m) + ' min' : m < 1440 ? f.n1(m / 60) + ' h' : f.n1(m / 1440) + ' g');
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, kids = []) => { const e = document.createElement(tag); Object.assign(e, props); e.append(...kids); return e; };
+const mask = () => el('span', { className: 'mask', title: 'Nascosto per privacy' }, []);
+const maskCell = (td) => { td.replaceChildren(mask()); td.setAttribute('aria-label', 'Nascosto'); return td; };
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const state = { months: 'all', q: '', type: '', res: '', sort: { k: 'c', dir: -1 }, page: 0, per: 15 };
+
+function periodData() {
+  const end = T[T.length - 1].dt;
+  let from = null;
+  if (state.months !== 'all') { from = new Date(end); from.setUTCMonth(from.getUTCMonth() - +state.months); }
+  const before = from ? T.filter((x) => x.dt < from) : [];
+  const trades = from ? T.filter((x) => x.dt >= from) : T.slice();
+  const start = START + d3.sum(before, (x) => x.p);
+  return { trades, start, from, end };
+}
+
+function analyse({ trades, start, from }) {
+  let bal = start, peak = start, dd = 0, ddAbs = 0, cw = 0, cl = 0, mw = 0, ml = 0;
+  const days = new Map();
+  const firstDay = from ? new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() - 1)) : (trades[0] ? new Date(Date.UTC(trades[0].dt.getUTCFullYear(), trades[0].dt.getUTCMonth(), trades[0].dt.getUTCDate() - 1)) : null);
+  const series = firstDay ? [{ t: firstDay, bal: start, dd: 0, day: 0 }] : [];
+  for (const x of trades) {
+    bal += x.p;
+    if (bal > peak) peak = bal;
+    const cur = (peak - bal) / peak;
+    if (cur > dd) { dd = cur; ddAbs = peak - bal; }
+    if (x.p > 0) { cw++; cl = 0; mw = Math.max(mw, cw); } else { cl++; cw = 0; ml = Math.max(ml, cl); }
+    const k = x.c.slice(0, 10);
+    const t = new Date(k + 'T00:00:00Z');
+    const last = series[series.length - 1];
+    if (last && +last.t === +t) { last.day += x.p; last.bal = bal; last.dd = (peak - bal) / peak * 100; }
+    else series.push({ t, bal, dd: (peak - bal) / peak * 100, day: x.p });
+    days.set(k, (days.get(k) || 0) + x.p);
+  }
+  const wins = trades.filter((x) => x.p > 0), losses = trades.filter((x) => x.p <= 0);
+  const gp = d3.sum(wins, (x) => x.p), gl = -d3.sum(losses, (x) => x.p);
+  // Sharpe giornaliero sui rendimenti dei giorni con operazioni
+  const rets = []; let b = start;
+  for (const s of series.slice(1)) { rets.push(s.day / (b || 1)); b = s.bal; }
+  const sd = d3.deviation(rets) || 0;
+  const sharpe = sd ? (d3.mean(rets) / sd) * Math.sqrt(252) : 0;
+  const pl = bal - start;
+  return {
+    start, bal, pl, plPct: pl / start * 100, dd: dd * 100, ddAbs, n: trades.length, wins: wins.length, losses: losses.length,
+    wr: trades.length ? wins.length / trades.length * 100 : 0, pf: gl ? gp / gl : 0, gp, gl,
+    avgW: wins.length ? gp / wins.length : 0, avgL: losses.length ? gl / losses.length : 0,
+    exp: trades.length ? pl / trades.length : 0, best: d3.max(trades, (x) => x.p) ?? 0, worst: d3.min(trades, (x) => x.p) ?? 0,
+    mw, ml, sharpe, rf: ddAbs ? pl / ddAbs : 0, lots: d3.sum(trades, (x) => x.l), avgDur: d3.mean(trades.filter((x) => x.d != null), (x) => x.d) ?? 0,
+    series, bestDay: d3.max([...days.values()]) ?? 0, worstDay: d3.min([...days.values()]) ?? 0, nDays: days.size
+  };
+}
+
+/* ---------- Riepilogo ---------- */
+function renderSummary(a, pd) {
+  const fl = d3.sum(OPEN, (x) => x.p);
+  const eq = a.bal + (state.months === 'all' || true ? fl : 0);
+  $('h-equity').textContent = f.eur(eq);
+  const tot = eq - START;
+  const pill = $('h-pl');
+  pill.textContent = sEur(a.pl);
+  pill.className = 'pill ' + cls(a.pl);
+  const lbl = state.months === 'all' ? 'dall\'apertura' : state.months === '1' ? 'nell\'ultimo mese' : 'negli ultimi 3 mesi';
+  $('h-plp').textContent = sPct(a.plPct) + ' ' + lbl;
+  $('h-sum').textContent = `Capitale iniziale ${f.eur0(START)}. Con le posizioni aperte il conto è ${tot >= 0 ? 'in guadagno di' : 'in perdita di'} ${f.eur(Math.abs(tot))} dall'apertura.`;
+  $('k-bal').textContent = f.eur(a.bal);
+  const kf = $('k-float'); kf.textContent = sEur(fl); kf.className = 'v ' + cls(fl);
+  $('k-float-s').textContent = OPEN.length + ' posizioni aperte';
+  $('k-dd').textContent = f.n2(a.dd) + '%';
+  $('k-dd-s').textContent = '−' + f.eur0(a.ddAbs) + ' dal picco';
+  $('k-wr').textContent = f.n1(a.wr) + '%';
+  $('k-wr-s').textContent = a.wins + ' su ' + a.n + ' operazioni';
+  $('k-pf').textContent = f.n2(a.pf);
+  const ke = $('k-exp'); ke.textContent = sEur(a.exp); ke.className = 'v ' + cls(a.exp);
+  $('st-period').textContent = state.months === 'all' ? 'Da giugno 2026' : (state.months === '1' ? 'Ultimo mese' : 'Ultimi 3 mesi');
+  const rows = [
+    ['Operazioni chiuse', f.int(a.n)], ['Giorni di trading', f.int(a.nDays)],
+    ['Profitto medio', sEur(a.avgW), 'good'], ['Perdita media', sEur(-a.avgL), 'bad'],
+    ['Rapporto profitto/perdita', f.n2(a.avgL ? a.avgW / a.avgL : 0)],
+    ['Miglior operazione', sEur(a.best), cls(a.best)], ['Peggior operazione', sEur(a.worst), cls(a.worst)],
+    ['Miglior giornata', sEur(a.bestDay), cls(a.bestDay)], ['Peggior giornata', sEur(a.worstDay), cls(a.worstDay)],
+    ['Serie vincente più lunga', a.mw + ' operazioni'], ['Serie perdente più lunga', a.ml + ' operazioni'],
+    ['Sharpe (annualizzato)', f.n2(a.sharpe)], ['Recovery factor', f.n2(a.rf)],
+    ['Lotti totali', f.n2(a.lots)], ...(PRIVACY.apertura ? [] : [['Durata media', dur(a.avgDur)]])
+  ];
+  $('stats').replaceChildren(...rows.map(([k, v, c]) => el('div', {}, [el('dt', { textContent: k }), el('dd', { textContent: v, className: c || '' })])));
+}
+
+/* ---------- Grafici ---------- */
+function leftMargin(svg, labels) {
+  const g = svg.append('g').attr('class', 'tick');
+  let w = 0; labels.forEach((t) => { w = Math.max(w, g.append('text').text(t).node().getComputedTextLength()); });
+  g.remove(); return Math.ceil(w) + 10;
+}
+function tooltip(box) { const t = el('div', { className: 'tt', hidden: true }); box.appendChild(t); return t; }
+function ttFill(t, head, rows) {
+  t.replaceChildren(el('div', { className: 'h', textContent: head }), ...rows.map(([k, v, c]) => el('div', { className: 'r' }, [el('span', { textContent: k }), el('b', { textContent: v, className: c || '' })])));
+  t.hidden = false;
+}
+function ttPlace(t, box, x, y) {
+  const w = t.offsetWidth, h = t.offsetHeight, bw = box.clientWidth;
+  t.style.left = Math.max(0, x + 14 + w > bw ? x - w - 14 : x + 14) + 'px';
+  t.style.top = Math.max(0, y - h / 2) + 'px';
+}
+const fmtAxis = (v) => L.format(',.0f')(v) + ' €';
+
+function drawEquity(a) {
+  const box = $('ch-equity'), boxDD = $('ch-dd');
+  box.replaceChildren(); boxDD.replaceChildren();
+  const s = a.series; if (s.length < 2) { box.append(el('p', { className: 'empty', textContent: 'Nessuna operazione nel periodo.' })); return; }
+  const W = Math.max(280, box.clientWidth), H = 280, mT = 10, mB = 24, mR = 14;
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img').attr('aria-label', 'Saldo del conto unificato a fine giornata');
+  const y = d3.scaleLinear().domain(d3.extent([...s.map((d) => d.bal), a.start])).nice();
+  const yt = y.ticks(5);
+  const mL = leftMargin(svg, yt.map(fmtAxis));
+  y.range([H - mB, mT]);
+  const x = d3.scaleUtc().domain(d3.extent(s, (d) => d.t)).range([mL, W - mR]);
+  const xt = Math.max(2, Math.min(8, Math.floor((W - mL) / 80)));
+  svg.append('g').attr('transform', `translate(${mL},0)`).call(d3.axisLeft(y).tickValues(yt).tickFormat(fmtAxis).tickSize(-(W - mL - mR))).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(0,${H - mB})`).call(d3.axisBottom(x).ticks(xt).tickFormat(state.months === '1' ? TL.utcFormat('%e %b') : f.mon).tickSizeOuter(0));
+  const acc = css('--accent');
+  const gid = 'g' + Math.random().toString(36).slice(2);
+  const grad = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+  grad.append('stop').attr('offset', '0%').attr('stop-color', acc).attr('stop-opacity', 0.22);
+  grad.append('stop').attr('offset', '100%').attr('stop-color', acc).attr('stop-opacity', 0);
+  svg.append('path').datum(s).attr('fill', `url(#${gid})`).attr('d', d3.area().x((d) => x(d.t)).y0(H - mB).y1((d) => y(d.bal)));
+  svg.append('line').attr('x1', mL).attr('x2', W - mR).attr('y1', y(a.start)).attr('y2', y(a.start)).attr('stroke', css('--muted')).attr('stroke-dasharray', '4 4');
+  svg.append('path').datum(s).attr('fill', 'none').attr('stroke', acc).attr('stroke-width', 2).attr('d', d3.line().x((d) => x(d.t)).y((d) => y(d.bal)));
+  const last = s[s.length - 1];
+  svg.append('circle').attr('cx', x(last.t)).attr('cy', y(last.bal)).attr('r', 4).attr('fill', acc);
+
+  // Drawdown
+  const H2 = 110;
+  const svg2 = d3.select(boxDD).append('svg').attr('viewBox', `0 0 ${W} ${H2}`).attr('height', H2).attr('role', 'img').attr('aria-label', 'Drawdown del conto unificato nel tempo');
+  const y2 = d3.scaleLinear().domain([Math.max(1, d3.max(s, (d) => d.dd)), 0]).nice().range([H2 - 20, 6]);
+  const y2t = y2.ticks(3);
+  svg2.append('g').attr('transform', `translate(${mL},0)`).call(d3.axisLeft(y2).tickValues(y2t).tickFormat((v) => (v ? '−' : '') + f.n1(v) + '%').tickSize(-(W - mL - mR))).call((g) => g.select('.domain').remove());
+  const bad = css('--bad');
+  svg2.append('path').datum(s).attr('fill', bad).attr('fill-opacity', 0.18).attr('stroke', bad).attr('stroke-width', 1.25)
+    .attr('d', d3.area().x((d) => x(d.t)).y0(y2(0)).y1((d) => y2(d.dd)));
+
+  // Interazione condivisa
+  const guide = svg.append('line').attr('y1', mT).attr('y2', H - mB).attr('stroke', css('--muted')).attr('visibility', 'hidden');
+  const dot = svg.append('circle').attr('r', 4.5).attr('fill', acc).attr('stroke', css('--panel')).attr('stroke-width', 2).attr('visibility', 'hidden');
+  const guide2 = svg2.append('line').attr('y1', 6).attr('y2', H2 - 20).attr('stroke', css('--muted')).attr('visibility', 'hidden');
+  const tt = tooltip(box);
+  const bis = d3.bisector((d) => d.t).center;
+  const show = (ev, node) => {
+    const sc = node.getBoundingClientRect().width / W;
+    const [px] = d3.pointer(ev, node);
+    const d = s[bis(s, x.invert(px))];
+    guide.attr('x1', x(d.t)).attr('x2', x(d.t)).attr('visibility', 'visible');
+    guide2.attr('x1', x(d.t)).attr('x2', x(d.t)).attr('visibility', 'visible');
+    dot.attr('cx', x(d.t)).attr('cy', y(d.bal)).attr('visibility', 'visible');
+    ttFill(tt, f.day(d.t), [['Saldo', f.eur(d.bal)], ['Giornata', sEur(d.day), cls(d.day)], ['Drawdown', d.dd ? '−' + f.n2(d.dd) + '%' : '0%', d.dd ? 'bad' : '']]);
+    ttPlace(tt, box, x(d.t) * sc, y(d.bal) * sc);
+  };
+  const hide = () => { tt.hidden = true; [guide, guide2, dot].forEach((g) => g.attr('visibility', 'hidden')); };
+  svg.append('rect').attr('x', mL).attr('y', mT).attr('width', W - mL - mR).attr('height', H - mT - mB).attr('fill', 'transparent')
+    .on('pointermove', function (ev) { show(ev, svg.node()); }).on('pointerleave', hide);
+  svg2.append('rect').attr('x', mL).attr('y', 0).attr('width', W - mL - mR).attr('height', H2).attr('fill', 'transparent')
+    .on('pointermove', function (ev) { show(ev, svg2.node()); }).on('pointerleave', hide);
+}
+
+function vbars(boxId, data, label, aria) {
+  const box = $(boxId); box.replaceChildren();
+  if (!data.length) { box.append(el('p', { className: 'empty', textContent: 'Nessuna operazione nel periodo.' })); return; }
+  const W = Math.max(260, box.clientWidth), H = 220, mT = 18, mB = 24, mR = 6;
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img').attr('aria-label', aria);
+  const y = d3.scaleLinear().domain([Math.min(0, d3.min(data, (d) => d.v)), Math.max(0, d3.max(data, (d) => d.v))]).nice();
+  const yt = y.ticks(4);
+  const mL = leftMargin(svg, yt.map(fmtAxis));
+  y.range([H - mB, mT]);
+  const x = d3.scaleBand().domain(data.map((d) => d.k)).range([mL, W - mR]).padding(0.25);
+  svg.append('g').attr('transform', `translate(${mL},0)`).call(d3.axisLeft(y).tickValues(yt).tickFormat(fmtAxis).tickSize(-(W - mL - mR))).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(0,${H - mB})`).call(d3.axisBottom(x).tickFormat(label).tickSize(0).tickPadding(8)).call((g) => g.select('.domain').remove());
+  svg.append('line').attr('x1', mL).attr('x2', W - mR).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', css('--muted'));
+  const tt = tooltip(box);
+  const good = css('--good'), bad = css('--bad');
+  data.forEach((d) => {
+    svg.append('rect').attr('x', x(d.k)).attr('width', x.bandwidth()).attr('y', y(Math.max(0, d.v))).attr('height', Math.max(1, Math.abs(y(d.v) - y(0)))).attr('rx', 2).attr('fill', d.v >= 0 ? good : bad);
+    svg.append('rect').attr('x', x(d.k) - x.step() * x.paddingInner() / 2).attr('width', x.step()).attr('y', mT).attr('height', H - mT - mB).attr('fill', 'transparent')
+      .on('pointerenter pointermove', (ev) => {
+        const sc = svg.node().getBoundingClientRect().width / W;
+        ttFill(tt, d.title, [['Profitto', sEur(d.v), cls(d.v)], ['Operazioni', f.int(d.n)], ['Win rate', f.n1(d.wr) + '%']]);
+        ttPlace(tt, box, (x(d.k) + x.bandwidth()) * sc, y(Math.max(0, d.v)) * sc + 30);
+      }).on('pointerleave', () => { tt.hidden = true; });
+  });
+}
+
+function group(trades, keyFn) {
+  const m = d3.group(trades, keyFn);
+  return (k) => { const g = m.get(k) || []; return { v: d3.sum(g, (x) => x.p), n: g.length, wr: g.length ? g.filter((x) => x.p > 0).length / g.length * 100 : 0 }; };
+}
+
+function drawWeekdays(trades) {
+  const names = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì'];
+  const g = group(trades, (x) => x.dt.getUTCDay());
+  const data = [1, 2, 3, 4, 5].map((k) => ({ k, title: names[k - 1], ...g(k) })).filter((d) => d.n || true);
+  vbars('ch-wd', trades.length ? data : [], (k) => names[k - 1].slice(0, 3), 'Profitto per giorno della settimana');
+}
+function drawHours(trades) {
+  const g = group(trades, (x) => x.dt.getUTCHours());
+  const hrs = d3.range(d3.min(T, (x) => x.dt.getUTCHours()), d3.max(T, (x) => x.dt.getUTCHours()) + 1);
+  const W = $('ch-hr').clientWidth;
+  vbars('ch-hr', trades.length ? hrs.map((k) => ({ k, title: 'Ore ' + String(k).padStart(2, '0') + ':00–' + String(k).padStart(2, '0') + ':59', ...g(k) })) : [],
+    (k) => (W < 460 && k % 2 ? '' : String(k).padStart(2, '0')), 'Profitto per ora di chiusura');
+}
+
+function drawSymbols(trades) {
+  const box = $('ch-sym'); box.replaceChildren();
+  const g = d3.rollups(trades, (v) => ({ v: d3.sum(v, (x) => x.p), n: v.length, wr: v.filter((x) => x.p > 0).length / v.length * 100, lots: d3.sum(v, (x) => x.l) }), (x) => x.s)
+    .map(([k, o]) => ({ k, ...o })).sort((a, b) => b.v - a.v);
+  if (!g.length) { box.append(el('p', { className: 'empty', textContent: 'Nessuna operazione nel periodo.' })); return; }
+  const W = Math.max(260, box.clientWidth), rh = 32, H = g.length * rh + 8;
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img').attr('aria-label', 'Profitto per strumento');
+  const mL = leftMargin(svg, g.map((d) => d.k));
+  const probe = svg.append('g'); let vw = 0;
+  g.forEach((d) => { vw = Math.max(vw, probe.append('text').attr('class', 'vlab').text(sEur0(d.v)).node().getComputedTextLength()); }); probe.remove();
+  const pad = Math.ceil(vw) + 10;
+  const ext = d3.extent(g, (d) => d.v);
+  const x = d3.scaleLinear().domain([Math.min(0, ext[0]), Math.max(0, ext[1])]).range([mL + (ext[0] < 0 ? pad : 0), W - (ext[1] > 0 ? pad : 6)]);
+  const y = d3.scaleBand().domain(g.map((d) => d.k)).range([4, H - 4]).padding(0.28);
+  svg.append('g').attr('class', 'tick-g').attr('transform', `translate(${mL - 4},0)`).call(d3.axisLeft(y).tickSize(0)).call((s) => s.select('.domain').remove());
+  svg.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', 0).attr('y2', H).attr('stroke', css('--muted'));
+  const tt = tooltip(box); const good = css('--good'), bad = css('--bad');
+  g.forEach((d) => {
+    svg.append('rect').attr('x', x(Math.min(0, d.v))).attr('width', Math.max(1, Math.abs(x(d.v) - x(0)))).attr('y', y(d.k)).attr('height', y.bandwidth()).attr('rx', 2).attr('fill', d.v >= 0 ? good : bad);
+    svg.append('text').attr('class', 'vlab').attr('x', d.v >= 0 ? x(d.v) + 6 : x(d.v) - 6).attr('y', y(d.k) + y.bandwidth() / 2).attr('dy', '.35em').attr('text-anchor', d.v >= 0 ? 'start' : 'end').text(sEur0(d.v));
+    svg.append('rect').attr('x', 0).attr('width', W).attr('y', y(d.k) - y.step() * y.paddingInner() / 2).attr('height', y.step()).attr('fill', 'transparent')
+      .on('pointerenter pointermove', (ev) => {
+        const sc = svg.node().getBoundingClientRect().width / W; const [px] = d3.pointer(ev, box);
+        ttFill(tt, d.k, [['Profitto', sEur(d.v), cls(d.v)], ['Operazioni', f.int(d.n)], ['Win rate', f.n1(d.wr) + '%'], ['Lotti', f.n2(d.lots)]]);
+        ttPlace(tt, box, px, (y(d.k) + y.bandwidth() / 2) * sc);
+      }).on('pointerleave', () => { tt.hidden = true; });
+  });
+}
+
+function drawHist(trades) {
+  const box = $('ch-hist'); box.replaceChildren();
+  if (!trades.length) { box.append(el('p', { className: 'empty', textContent: 'Nessuna operazione nel periodo.' })); return; }
+  const W = Math.max(260, box.clientWidth), H = 170, mT = 8, mB = 24, mR = 8;
+  const svg = d3.select(box).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H).attr('role', 'img').attr('aria-label', 'Distribuzione dei profitti per operazione');
+  const ext = d3.extent(trades, (x) => x.p);
+  const step = 100;
+  const thr = d3.range(Math.floor(ext[0] / step) * step, Math.ceil(ext[1] / step) * step + step, step);
+  const bins = d3.bin().domain([thr[0], thr[thr.length - 1]]).thresholds(thr)(trades.map((x) => x.p));
+  const yv = d3.scaleLinear().domain([0, d3.max(bins, (b) => b.length)]).nice();
+  const yt = yv.ticks(3);
+  const mL = leftMargin(svg, yt.map(String));
+  yv.range([H - mB, mT]);
+  const x = d3.scaleLinear().domain([thr[0], thr[thr.length - 1]]).range([mL, W - mR]);
+  svg.append('g').attr('transform', `translate(${mL},0)`).call(d3.axisLeft(yv).tickValues(yt).tickFormat(d3.format('d')).tickSize(-(W - mL - mR))).call((g) => g.select('.domain').remove());
+  svg.append('g').attr('transform', `translate(0,${H - mB})`).call(d3.axisBottom(x).ticks(Math.max(3, Math.floor(W / 90))).tickFormat((v) => sgn(v) + L.format(',.0f')(Math.abs(v)) + ' €').tickSizeOuter(0));
+  const tt = tooltip(box); const good = css('--good'), bad = css('--bad');
+  bins.forEach((b) => {
+    if (!b.length) return;
+    svg.append('rect').attr('x', x(b.x0) + 1).attr('width', Math.max(1, x(b.x1) - x(b.x0) - 2)).attr('y', yv(b.length)).attr('height', yv(0) - yv(b.length)).attr('rx', 1.5)
+      .attr('fill', b.x0 >= 0 ? good : bad).attr('fill-opacity', 0.85)
+      .on('pointerenter pointermove', (ev) => {
+        const [px, py] = d3.pointer(ev, box);
+        ttFill(tt, `Da ${sEur0(b.x0)} a ${sEur0(b.x1)}`, [['Operazioni', f.int(b.length)]]);
+        ttPlace(tt, box, px, py);
+      }).on('pointerleave', () => { tt.hidden = true; });
+  });
+  svg.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', mT).attr('y2', H - mB).attr('stroke', css('--muted')).attr('stroke-dasharray', '3 3');
+}
+
+function drawDirection(trades) {
+  const box = $('dir');
+  box.replaceChildren(...['buy', 'sell'].map((ty) => {
+    const g = trades.filter((x) => x.ty === ty);
+    const v = d3.sum(g, (x) => x.p), w = g.filter((x) => x.p > 0).length, wr = g.length ? w / g.length * 100 : 0;
+    const bar = el('div', { className: 'bar' }, [el('i')]); bar.firstChild.style.width = wr + '%';
+    return el('div', { className: 'side' }, [
+      el('div', { className: 't' }, [el('b', { textContent: ty }), el('span', { className: 'muted', textContent: f.int(g.length) + ' operazioni' })]),
+      el('div', { className: 'v ' + cls(v), textContent: sEur(v) }),
+      bar,
+      el('div', { className: 'm' }, [el('span', { textContent: 'Win rate ' + f.n1(wr) + '%' }), el('span', { textContent: 'Media ' + sEur(g.length ? v / g.length : 0) })])
+    ]);
+  }));
+}
+
+function renderMonths(pd) {
+  const m = d3.groups(pd.trades, (x) => x.c.slice(0, 7));
+  let bal = pd.start;
+  const rows = m.map(([k, g]) => { const v = d3.sum(g, (x) => x.p); const r = { k, n: g.length, wr: g.filter((x) => x.p > 0).length / g.length * 100, v, pct: v / bal * 100 }; bal += v; return r; }).reverse();
+  const mx = d3.max(rows, (r) => Math.abs(r.pct)) || 1;
+  const tb = $('t-months');
+  if (!rows.length) { tb.replaceChildren(el('tr', {}, [el('td', { colSpan: 5, className: 'empty', textContent: 'Nessuna operazione nel periodo.' })])); return; }
+  tb.replaceChildren(...rows.map((r) => {
+    const bar = el('i'); bar.style.width = (Math.abs(r.pct) / mx * 100) + '%'; bar.style.background = r.pct >= 0 ? 'var(--good-soft)' : 'var(--bad-soft)';
+    const cell = el('td', { className: 'r mcell num' }, [bar, el('span', { className: cls(r.pct), textContent: sPct(r.pct) })]);
+    return el('tr', {}, [
+      el('td', { textContent: f.month(new Date(r.k + '-01T00:00:00Z')).replace(/^./, (c) => c.toUpperCase()) }),
+      el('td', { className: 'r num', textContent: f.int(r.n) }),
+      el('td', { className: 'r num', textContent: f.n1(r.wr) + '%' }),
+      el('td', { className: 'r num ' + cls(r.v), textContent: sEur(r.v) }),
+      cell
+    ]);
+  }));
+}
+
+function renderOpen() {
+  const fl = d3.sum(OPEN, (x) => x.p);
+  $('open-sum').textContent = OPEN.length + ' posizioni · flottante ' + sEur(fl);
+  const px = (v) => (v < 10 ? L.format(',.5f')(v) : L.format(',.2f')(v));
+  $('t-open').replaceChildren(...OPEN.map((x) => el('tr', {}, [
+    el('td', { className: 'num', textContent: x.t }),
+    x.o ? el('td', { className: 'num', textContent: f.dayTime(new Date(x.o + ':00Z')) }) : maskCell(el('td')),
+    x.s ? el('td', { textContent: x.s }) : maskCell(el('td')),
+    el('td', {}, [el('span', { className: 'side-tag ' + x.ty, textContent: x.ty })]),
+    el('td', { className: 'r num', textContent: f.n2(x.l) }),
+    x.po != null ? el('td', { className: 'r num', textContent: px(x.po) }) : maskCell(el('td', { className: 'r' })),
+    x.pc != null ? el('td', { className: 'r num', textContent: px(x.pc) }) : maskCell(el('td', { className: 'r' })),
+    el('td', { className: 'r num ' + cls(x.p), textContent: sEur(x.p) })
+  ])));
+}
+
+/* ---------- Storico ---------- */
+function historyRows(pd) {
+  const q = state.q.trim().toUpperCase();
+  let r = pd.trades.filter((x) => (!state.type || x.ty === state.type) && (!state.res || (state.res === 'w' ? x.p > 0 : x.p <= 0)) && (!q || (x.s && x.s.includes(q)) || String(x.t).includes(q)));
+  const { k, dir } = state.sort;
+  r.sort((a, b) => (a[k] < b[k] ? -dir : a[k] > b[k] ? dir : 0));
+  return r;
+}
+function renderHistory(pd) {
+  const r = historyRows(pd);
+  const pages = Math.max(1, Math.ceil(r.length / state.per));
+  state.page = Math.min(state.page, pages - 1);
+  const slice = r.slice(state.page * state.per, (state.page + 1) * state.per);
+  const tot = d3.sum(r, (x) => x.p);
+  $('hist-count').textContent = f.int(r.length) + ' operazioni · totale ' + sEur(tot);
+  const tb = $('t-hist');
+  if (!slice.length) tb.replaceChildren(el('tr', {}, [el('td', { colSpan: 8, className: 'empty', textContent: 'Nessuna operazione corrisponde ai filtri.' })]));
+  else tb.replaceChildren(...slice.map((x) => el('tr', {}, [
+    el('td', { className: 'num', textContent: x.t }),
+    x.o ? el('td', { className: 'num', textContent: f.dayTime(new Date(x.o + ':00Z')) }) : maskCell(el('td')),
+    el('td', { className: 'num', textContent: f.dayTime(x.dt) }),
+    x.s ? el('td', { textContent: x.s }) : maskCell(el('td')),
+    el('td', {}, [el('span', { className: 'side-tag ' + x.ty, textContent: x.ty })]),
+    el('td', { className: 'r num', textContent: f.n2(x.l) }),
+    x.d != null ? el('td', { className: 'r num', textContent: dur(x.d) }) : maskCell(el('td', { className: 'r' })),
+    el('td', { className: 'r num ' + cls(x.p), textContent: sEur(x.p) })
+  ])));
+  $('pg-info').textContent = r.length ? `${state.page * state.per + 1}–${Math.min(r.length, (state.page + 1) * state.per)} di ${f.int(r.length)}` : '';
+  $('pg-prev').disabled = state.page === 0;
+  $('pg-next').disabled = state.page >= pages - 1;
+  document.querySelectorAll('#t-head th').forEach((th) => {
+    if (th.dataset.k === state.sort.k) th.setAttribute('aria-sort', state.sort.dir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+  });
+}
+
+/* ---------- Ciclo principale ---------- */
+let PD, A;
+function renderAll() {
+  PD = periodData(); A = analyse(PD);
+  renderSummary(A, PD); renderMonths(PD); renderOpen(); renderHistory(PD); drawDirection(PD.trades);
+  drawCharts();
+}
+function drawCharts() { drawEquity(A); if (!PRIVACY.simboli) drawSymbols(PD.trades); drawHist(PD.trades); drawWeekdays(PD.trades); drawHours(PD.trades); }
+
+if (PRIVACY.simboli || PRIVACY.apertura) $('priv-badge').hidden = false;
+if (PRIVACY.simboli) {
+  $('simboli').hidden = true; $('direzione').classList.replace('c6', 'c12');
+  $('q').placeholder = 'Cerca ticket'; $('q').setAttribute('aria-label', 'Cerca ticket');
+}
+document.querySelectorAll('#t-head th').forEach((th) => {
+  const k = th.dataset.k;
+  if ((PRIVACY.simboli && k === 's') || (PRIVACY.apertura && (k === 'o' || k === 'd'))) th.querySelector('button').disabled = true;
+});
+$('upd').textContent = f.dayTime(new Date(UPDATED + ':00Z'));
+document.querySelectorAll('#period button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#period button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+  state.months = b.dataset.p; state.page = 0; renderAll();
+}));
+$('theme').addEventListener('click', () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('cu-theme', root.dataset.theme); } catch (e) {}
+  drawCharts();
+});
+try { const t = localStorage.getItem('cu-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawCharts);
+$('q').addEventListener('input', (e) => { state.q = e.target.value; state.page = 0; renderHistory(PD); });
+$('f-type').addEventListener('change', (e) => { state.type = e.target.value; state.page = 0; renderHistory(PD); });
+$('f-res').addEventListener('change', (e) => { state.res = e.target.value; state.page = 0; renderHistory(PD); });
+$('pg-prev').addEventListener('click', () => { state.page--; renderHistory(PD); });
+$('pg-next').addEventListener('click', () => { state.page++; renderHistory(PD); });
+document.querySelectorAll('#t-head th').forEach((th) => th.querySelector('button').addEventListener('click', () => {
+  const k = th.dataset.k; state.sort = { k, dir: state.sort.k === k ? -state.sort.dir : (k === 'c' || k === 'o' || k === 'p' ? -1 : 1) }; renderHistory(PD);
+}));
+$('csv').addEventListener('click', () => {
+  const r = historyRows(PD);
+  const cols = [['ticket', (x) => x.t], ['apertura', (x) => x.o.replace('T', ' '), 'apertura'], ['chiusura', (x) => x.c.replace('T', ' ')], ['simbolo', (x) => x.s, 'simboli'],
+    ['tipo', (x) => x.ty], ['lotti', (x) => String(x.l).replace('.', ',')], ['profitto', (x) => x.p.toFixed(2).replace('.', ',')]].filter((c) => !c[2] || !PRIVACY[c[2]]);
+  const lines = [cols.map((c) => c[0]).join(';'), ...r.map((x) => cols.map((c) => c[1](x)).join(';'))];
+  const url = URL.createObjectURL(new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+  const a = el('a', { href: url, download: 'conto-unificato-operazioni.csv' }); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+let rw = 0;
+new ResizeObserver(() => { const w = document.querySelector('.wrap').clientWidth; if (w !== rw) { rw = w; if (A) drawCharts(); } }).observe(document.querySelector('.wrap'));
+renderAll();
+</script>
+</body>
+</html>
