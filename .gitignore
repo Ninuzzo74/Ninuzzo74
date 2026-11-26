@@ -1,0 +1,6 @@
+# Dati veri dei conti e credenziali: non vanno mai su GitHub
+dashboard/config_conti.json
+dashboard/dati_mt5/
+dashboard/pubblica/
+__pycache__/
+dashboard/aggiorna.log

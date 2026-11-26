@@ -1,0 +1,16 @@
+{
+  "terminale": "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
+  "storico_dal": "2020-01-01",
+  "conti": [
+    { "nome": "A", "login": 12345678, "password_investor": "PASSWORD_INVESTOR_A", "server": "NomeBroker-Server" },
+    { "nome": "B", "login": 87654321, "password_investor": "PASSWORD_INVESTOR_B", "server": "NomeBroker-Server" }
+  ],
+  "ftp": {
+    "attivo": false,
+    "host": "ftp.tuosito.it",
+    "utente": "utente_ftp",
+    "password": "PASSWORD_FTP",
+    "cartella": "/public_html/dashboard",
+    "nome_file": "index.html"
+  }
+}
