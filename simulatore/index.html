@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulatore Sequenze Bonus</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banco di controllo a due colonne — parametri a sinistra (sticky), risultati a destra: sintesi → grafico → tabella comparativa → dettaglio sequenza */
+:root {
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --ink: #16191f;
+  --ink-2: #5b6270;
+  --line: #dfe2e8;
+  --soft: #eceef2;
+  --accent: #9a6a12;          /* oro brunito: XAU */
+  --accent-soft: #f6ecd7;
+  --win: #127a3a;
+  --win-soft: #dff3e6;
+  --loss: #c23434;
+  --loss-soft: #fbe3e3;
+  --warn: #a15c00;
+  --s1: #257de0; --s2: #f47230; --s3: #00b894; --s4: #d28e05; --s5: #e24d8b;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111317; --panel: #1a1d23; --ink: #eceef2; --ink-2: #9aa1ae; --line: #2c313a; --soft: #22262d;
+  --accent: #e0b252; --accent-soft: #3a3020; --win: #3ccf74; --win-soft: #173323; --loss: #f07070; --loss-soft: #3a1d1f; --warn: #f0a640;
+  --s1: #338ced; --s2: #e76624; --s3: #00a888; --s4: #d28e05; --s5: #e24d8b; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111317; --panel: #1a1d23; --ink: #eceef2; --ink-2: #9aa1ae; --line: #2c313a; --soft: #22262d;
+  --accent: #e0b252; --accent-soft: #3a3020; --win: #3ccf74; --win-soft: #173323; --loss: #f07070; --loss-soft: #3a1d1f; --warn: #f0a640;
+  --s1: #338ced; --s2: #e76624; --s3: #00a888; --s4: #d28e05; --s5: #e24d8b; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px; }
+.wrap { max-width: 1380px; margin: 0 auto; display: grid; gap: 18px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--f-display); font-weight: 800; font-size: 1.7rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.sub { color: var(--ink-2); margin: 4px 0 0; max-width: 70ch; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 1.02rem; margin: 0; letter-spacing: 0.005em; }
+.label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); font-weight: 600; }
+.mono, td.num, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+aside.ctrl { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px; display: grid; gap: 16px; max-height: calc(100vh - 24px); overflow: auto; }
+@media (max-width: 980px) { aside.ctrl { position: static; max-height: none; } }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px; min-width: 0; }
+fieldset + fieldset { border-top: 1px solid var(--line); padding-top: 14px; }
+legend { padding: 0; margin-bottom: 8px; font-family: var(--f-display); font-weight: 700; font-size: 0.92rem; display: flex; gap: 8px; align-items: center; }
+.tag { font-family: var(--f-mono); font-size: 0.7rem; font-weight: 500; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field label { font-size: 0.78rem; color: var(--ink-2); }
+.field .hint { font-size: 0.72rem; color: var(--ink-2); }
+input[type=number], select { width: 100%; font: 500 0.92rem var(--f-mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 9px; font-variant-numeric: tabular-nums; }
+input[type=number]:focus, select:focus, button:focus-visible, .seg label:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+select { font-family: var(--f-body); font-size: 0.84rem; padding-right: 4px; }
+.inwrap { position: relative; }
+.inwrap .unit { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font: 0.78rem var(--f-mono); pointer-events: none; }
+.inwrap input { padding-right: 26px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg label { flex: 1; text-align: center; cursor: pointer; font-size: 0.82rem; padding: 6px 4px; border-right: 1px solid var(--line); user-select: none; }
+.seg label:last-child { border-right: 0; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--ink); color: var(--panel); font-weight: 600; }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 0.84rem; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: 600 0.82rem var(--f-body); border-radius: 6px; padding: 7px 12px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button:hover { border-color: var(--ink-2); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+
+main.res { display: grid; gap: 18px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0; }
+.cardhead { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.kpi { background: var(--panel); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
+.kpi .v { font: 600 1.25rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 0.76rem; color: var(--ink-2); }
+.pos { color: var(--win); } .neg { color: var(--loss); }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; }
+th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-2); font-weight: 600; background: var(--soft); position: sticky; top: 0; }
+td.num, th.num { text-align: right; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.rowsel { background: var(--accent-soft); }
+#cmp tbody tr { cursor: pointer; }
+#cmp tbody tr:hover { background: var(--soft); }
+#cmp tbody tr.rowsel:hover { background: var(--accent-soft); }
+.seqchips { display: grid; grid-auto-flow: column; gap: 2px; justify-content: start; }
+.seqcol { display: grid; gap: 2px; }
+.chip { font: 600 0.68rem var(--f-mono); width: 20px; height: 17px; display: grid; place-items: center; border-radius: 3px; }
+.chip.W { background: var(--win-soft); color: var(--win); }
+.chip.L { background: var(--loss-soft); color: var(--loss); }
+.chip.X { background: var(--soft); color: var(--ink-2); }
+.seqlbl { display: grid; gap: 2px; margin-right: 4px; }
+.seqlbl span { font: 500 0.66rem var(--f-mono); color: var(--ink-2); height: 17px; display: grid; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.target { background: var(--win-soft); color: var(--win); }
+.pill.stop { background: var(--loss-soft); color: var(--loss); }
+.pill.done { background: var(--soft); color: var(--ink-2); }
+.hit { color: var(--win); font-weight: 600; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.toolbar select { width: auto; }
+.note { font-size: 0.78rem; color: var(--ink-2); }
+
+#chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 0.78rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--panel); font: 0.76rem var(--f-mono); padding: 6px 8px; border-radius: 5px; z-index: 20; white-space: pre; }
+
+.builder { display: grid; gap: 10px; }
+.trades { display: flex; flex-wrap: wrap; gap: 8px; }
+.tcell { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: grid; gap: 6px; min-width: 92px; }
+.tcell .label { font-size: 0.66rem; }
+.tog { display: flex; gap: 4px; align-items: center; font: 0.74rem var(--f-mono); }
+.tog button { padding: 3px 8px; font: 600 0.74rem var(--f-mono); min-width: 64px; }
+.tog button.W { background: var(--win-soft); color: var(--win); border-color: transparent; }
+.tog button.L { background: var(--loss-soft); color: var(--loss); border-color: transparent; }
+.tog button[disabled] { opacity: 0.55; cursor: default; }
+.acchead { display: flex; gap: 8px; align-items: center; }
+details summary { cursor: pointer; font-weight: 600; font-size: 0.86rem; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 0.82rem; display: grid; gap: 4px; max-width: 95ch; }
+@media (prefers-reduced-motion: no-preference) { .kpi .v, td { transition: color .2s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Simulatore sequenze <span>Bonus A / B</span></h1>
+      <p class="sub">Due conti con bonus distinti, payout e regole di stop-out. Il motore prova tutte le sequenze di 3–5 trade, le ordina e mostra quali raggiungono l'obiettivo. I valori iniziali sono un esempio da sostituire con i tuoi.</p>
+    </div>
+    <div class="btnrow">
+      <button id="btn-reset" type="button">Ripristina esempio</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="ctrl" aria-label="Parametri">
+      <fieldset>
+        <legend>Capitale e obiettivo</legend>
+        <div class="grid2">
+          <div class="field"><label for="K">Capitale iniziale</label><div class="inwrap"><input id="K" type="number" min="1" step="100"><span class="unit">$</span></div></div>
+          <div class="field"><label for="shareA">Quota su conto A</label><div class="inwrap"><input id="shareA" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+          <div class="field"><label for="target">Obiettivo profitto</label><div class="inwrap"><input id="target" type="number" step="50"><span class="unit">$</span></div></div>
+          <div class="field"><label for="pwin">P(vincita) conto A</label><div class="inwrap"><input id="pwin" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+        </div>
+        <div class="field"><span class="label">Trade consecutivi</span>
+          <div class="seg" role="radiogroup" aria-label="Numero di trade">
+            <label><input type="radio" name="N" id="N3" value="3">3</label>
+            <label><input type="radio" name="N" id="N4" value="4">4</label>
+            <label><input type="radio" name="N" id="N5" value="5">5</label>
+          </div>
+        </div>
+        <div class="field"><span class="label">Modalità</span>
+          <div class="seg" role="radiogroup" aria-label="Modalità">
+            <label><input type="radio" name="mode" id="mode-h" value="hedge">Hedge A↔B</label>
+            <label><input type="radio" name="mode" id="mode-i" value="indep">Indipendenti</label>
+          </div>
+          <span class="hint" id="mode-hint"></span>
+        </div>
+        <label class="check"><input type="checkbox" id="stopTarget"> Chiudi la sequenza appena l'obiettivo è raggiunto</label>
+        <label class="check"><input type="checkbox" id="hedgeEnd"> In hedge, chiudi il ciclo al primo stop-out</label>
+      </fieldset>
+
+      <fieldset id="fs-A">
+        <legend>Conto A <span class="tag">Bonus A</span></legend>
+        <div class="grid2">
+          <div class="field"><label for="A-bonus">Bonus sul deposito</label><div class="inwrap"><input id="A-bonus" type="number" min="0" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="A-risk">Rischio per trade</label><div class="inwrap"><input id="A-risk" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+          <div class="field"><label for="A-pay">Payout vincita</label><div class="inwrap"><input id="A-pay" type="number" min="0" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="A-loss">Perdita su stake</label><div class="inwrap"><input id="A-loss" type="number" min="0" max="100" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="A-so">Stop-out a equity ≤</label><div class="inwrap"><input id="A-so" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+          <div class="field"><label for="A-reg">Bonus sulle perdite</label>
+            <select id="A-reg"><option value="absorb">Assorbe</option><option value="remove">Rimosso</option></select></div>
+        </div>
+      </fieldset>
+
+      <fieldset id="fs-B">
+        <legend>Conto B <span class="tag">Bonus B</span></legend>
+        <div class="grid2">
+          <div class="field"><label for="B-bonus">Bonus sul deposito</label><div class="inwrap"><input id="B-bonus" type="number" min="0" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="B-risk">Rischio per trade</label><div class="inwrap"><input id="B-risk" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+          <div class="field"><label for="B-pay">Payout vincita</label><div class="inwrap"><input id="B-pay" type="number" min="0" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="B-loss">Perdita su stake</label><div class="inwrap"><input id="B-loss" type="number" min="0" max="100" step="5"><span class="unit">%</span></div></div>
+          <div class="field"><label for="B-so">Stop-out a equity ≤</label><div class="inwrap"><input id="B-so" type="number" min="0" max="100" step="1"><span class="unit">%</span></div></div>
+          <div class="field"><label for="B-reg">Bonus sulle perdite</label>
+            <select id="B-reg"><option value="absorb">Assorbe</option><option value="remove">Rimosso</option></select></div>
+        </div>
+        <p class="note">Rischio = quota dell'equity (balance + bonus) impegnata nel trade. Stop-out in % dell'equity iniziale del conto. "Assorbe": il bonus copre le perdite dopo il balance. "Rimosso": il bonus sparisce quando il balance si azzera.</p>
+      </fieldset>
+    </aside>
+
+    <main class="res">
+      <section class="kpis" id="kpis" aria-label="Sintesi"></section>
+
+      <section class="card">
+        <div class="cardhead">
+          <h2>Evoluzione del capitale prelevabile</h2>
+          <span class="note" id="chart-note"></span>
+        </div>
+        <div id="chart"></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="card">
+        <div class="cardhead">
+          <h2>Tabella comparativa delle sequenze</h2>
+          <div class="toolbar">
+            <label class="note" for="sort">Ordina per</label>
+            <select id="sort">
+              <option value="final">Risultato finale</option>
+              <option value="worst">Capitale minimo nel percorso</option>
+              <option value="prob">Probabilità</option>
+              <option value="len">Trade giocati (meno = prima)</option>
+            </select>
+            <label class="check"><input type="checkbox" id="onlyHit"> Solo obiettivo raggiunto</label>
+          </div>
+        </div>
+        <div class="tablewrap" style="max-height: 520px;">
+          <table id="cmp"><thead></thead><tbody></tbody></table>
+        </div>
+        <p class="note" id="cmp-note" style="margin: 8px 0 0;"></p>
+      </section>
+
+      <section class="card builder">
+        <div class="cardhead">
+          <h2>Sequenza manuale · dettaglio trade per trade</h2>
+          <div class="btnrow">
+            <button type="button" id="alt1">Alterna V/P</button>
+            <button type="button" id="alt2">Alterna P/V</button>
+          </div>
+        </div>
+        <p class="note" style="margin:0">Imposta l'esito di ogni trade o clicca una riga della tabella. In modalità hedge l'esito di B è sempre opposto ad A.</p>
+        <div class="trades" id="trades"></div>
+        <div class="tablewrap"><table id="detail"><thead></thead><tbody></tbody></table></div>
+      </section>
+
+      <section class="card">
+        <details>
+          <summary>Regole di calcolo del modello</summary>
+          <ul>
+            <li>Deposito A = capitale × quota A; deposito B = capitale − deposito A. Bonus = deposito × % bonus, accreditato come credito non prelevabile.</li>
+            <li>Equity = balance + credito bonus. Stake del trade = rischio % × equity corrente del conto.</li>
+            <li>Vincita: balance += stake × payout %. Perdita: stake × perdita %, tolta prima dal balance e poi dal credito ("assorbe perdite"). Con "rimosso se equity ≤ bonus" il credito sparisce quando il balance si azzera e il conto va in stop-out.</li>
+            <li>Stop-out: equity ≤ soglia % dell'equity iniziale del conto. Il conto si chiude, il credito residuo è perso, il balance positivo resta prelevabile. Saldo negativo azzerato.</li>
+            <li>Capitale prelevabile = somma dei balance positivi (bonus escluso). Risultato = prelevabile − capitale iniziale.</li>
+            <li>Probabilità di una sequenza = prodotto delle probabilità dei trade effettivamente giocati (A vince con P, B con P in modalità indipendente). Le sequenze interrotte prima della fine sono contate una volta sola.</li>
+            <li>Risultati teorici: non includono spread, slippage, swap né le condizioni contrattuali del bonus (requisiti di volume, divieto di hedging tra conti o broker, annullamento dei profitti), che possono rendere il bonus non utilizzabile o i profitti non prelevabili.</li>
+          </ul>
+        </details>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+  const DEFAULTS = {
+    K: 4000, shareA: 50, target: 500, pwin: 50, N: 4, mode: "hedge", stopTarget: true, hedgeEnd: true,
+    A: { bonus: 0, risk: 30, pay: 90, loss: 100, so: 20, reg: "absorb" },
+    B: { bonus: 100, risk: 20, pay: 90, loss: 100, so: 20, reg: "absorb" },
+  };
+  const STORE = "bonus-sim-v1";
+  const $ = (id) => document.getElementById(id);
+  let P = load();
+  let manual = defaultManual(P.N);
+  let selectedKey = null;
+
+  function load() {
+    try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.A && s.B) return Object.assign(structuredClone(DEFAULTS), s); } catch (e) {}
+    return structuredClone(DEFAULTS);
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(P)); } catch (e) {} }
+  function defaultManual(n) { return Array.from({ length: 5 }, (_, i) => ({ a: i % 2 ? "L" : "W", b: i % 2 ? "W" : "L" })).slice(0, 5); }
+
+  // ---------- formattazione ----------
+  const nf0 = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0, useGrouping: "always" });
+  const nf2 = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" });
+  const usd = (v, d = 0) => (v < 0 ? "−$" : "$") + (d ? nf2 : nf0).format(Math.abs(v));
+  const sgn = (v, d = 0) => (v > 0 ? "+" : v < 0 ? "−" : "") + "$" + (d ? nf2 : nf0).format(Math.abs(v));
+  const pct = (v, d = 1) => (v * 100).toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d, useGrouping: "always" }).replace("-", "−") + "%";
+  const cls = (v) => (v > 0.005 ? "pos" : v < -0.005 ? "neg" : "");
+
+  // ---------- motore ----------
+  function initAccounts(p) {
+    const depA = p.K * p.shareA / 100, depB = p.K - depA;
+    return [
+      { name: "A", dep: depA, bal: depA, cred: depA * p.A.bonus / 100, cfg: p.A, active: depA > 0, stopped: false },
+      { name: "B", dep: depB, bal: depB, cred: depB * p.B.bonus / 100, cfg: p.B, active: depB > 0, stopped: false },
+    ].map((a) => ({ ...a, eq0: a.bal + a.cred }));
+  }
+  const withdrawable = (accs) => accs.reduce((s, a) => s + Math.max(a.bal, 0), 0);
+  const equityTot = (accs) => accs.reduce((s, a) => s + a.bal + a.cred, 0);
+  const creditTot = (accs) => accs.reduce((s, a) => s + a.cred, 0);
+
+  function applyTrade(acc, outcome) {
+    const eq = acc.bal + acc.cred;
+    const stake = Math.max(eq, 0) * acc.cfg.risk / 100;
+    let pl = 0;
+    if (outcome === "W") { pl = stake * acc.cfg.pay / 100; acc.bal += pl; }
+    else {
+      pl = -stake * acc.cfg.loss / 100;
+      acc.bal += pl;
+      if (acc.bal < 0) { acc.cred += acc.bal; acc.bal = 0; if (acc.cred < 0) acc.cred = 0; }
+      if (acc.cfg.reg === "remove" && acc.bal <= 0 && acc.cred > 0) acc.cred = 0;
+    }
+    const eqAfter = acc.bal + acc.cred;
+    let stop = false;
+    if (eqAfter <= acc.eq0 * acc.cfg.so / 100 || eqAfter <= 0.005) {
+      stop = true; acc.cred = 0; acc.bal = Math.max(acc.bal, 0); acc.active = false; acc.stopped = true;
+    }
+    return { stake, pl, stop };
+  }
+
+  // seq: array di {a, b}; ritorna percorso con snapshot dopo ogni trade
+  function simulate(p, seq) {
+    const accs = initAccounts(p);
+    const steps = [{ i: 0, wd: withdrawable(accs), eq: equityTot(accs), cred: creditTot(accs),
+      acc: accs.map((a) => ({ bal: a.bal, cred: a.cred, eq: a.bal + a.cred, stake: 0, pl: 0, out: "", st: a.active ? "attivo" : "—" })) }];
+    let end = "done", prob = 1, gain = 0, lossSum = 0;
+    const played = [];
+    for (let i = 0; i < seq.length; i++) {
+      const s = seq[i];
+      const outs = [s.a, p.mode === "hedge" ? (s.a === "W" ? "L" : "W") : s.b];
+      const res = accs.map((a, k) => a.active ? applyTrade(a, outs[k]) : null);
+      played.push({ a: accs[0].stopped && !res[0] ? "X" : (res[0] ? outs[0] : "X"), b: res[1] ? outs[1] : "X" });
+      const pw = p.pwin / 100;
+      if (res[0]) prob *= outs[0] === "W" ? pw : 1 - pw;
+      if (p.mode === "indep" && res[1]) prob *= outs[1] === "W" ? pw : 1 - pw;
+      res.forEach((r) => { if (r) { if (r.pl > 0) gain += r.pl; else lossSum += -r.pl; } });
+      steps.push({ i: i + 1, wd: withdrawable(accs), eq: equityTot(accs), cred: creditTot(accs),
+        acc: accs.map((a, k) => ({ bal: a.bal, cred: a.cred, eq: a.bal + a.cred, stake: res[k] ? res[k].stake : 0, pl: res[k] ? res[k].pl : 0,
+          out: res[k] ? outs[k] : "", st: res[k] && res[k].stop ? "STOP-OUT" : a.stopped ? "chiuso" : a.active ? "attivo" : "—" })) });
+      const stopsNow = res.map((r) => r && r.stop);
+      const net = withdrawable(accs) - p.K;
+      if (stopsNow[0] || stopsNow[1]) {
+        const who = stopsNow[0] && stopsNow[1] ? "A+B" : stopsNow[0] ? "A" : "B";
+        if ((p.mode === "hedge" && p.hedgeEnd) || (!accs[0].active && !accs[1].active)) { end = "stop" + who; break; }
+        end = "stop" + who;
+      }
+      if (!accs[0].active && !accs[1].active) { end = end.startsWith("stop") ? end : "stopA+B"; break; }
+      if (p.stopTarget && net >= p.target) { end = "target"; break; }
+      if (i === seq.length - 1 && !end.startsWith("stop")) end = "done";
+    }
+    const final = withdrawable(accs) - p.K;
+    const minWd = Math.min(...steps.map((s) => s.wd));
+    return { steps, played, end, final, prob, gain, loss: lossSum, cred: creditTot(accs), minWd,
+      stopped: accs.map((a) => a.stopped), hit: final >= p.target };
+  }
+
+  function enumerate(p) {
+    const opts = p.mode === "hedge" ? [{ a: "W", b: "L" }, { a: "L", b: "W" }]
+      : [{ a: "W", b: "W" }, { a: "W", b: "L" }, { a: "L", b: "W" }, { a: "L", b: "L" }];
+    const all = [];
+    const rec = (prefix) => {
+      if (prefix.length === p.N) { all.push(prefix); return; }
+      for (const o of opts) rec(prefix.concat(o));
+    };
+    rec([]);
+    const map = new Map();
+    for (const seq of all) {
+      const r = simulate(p, seq);
+      const key = r.played.map((x) => x.a + x.b).join("|");
+      if (!map.has(key)) { r.key = key; r.seq = seq.slice(0, r.played.length); map.set(key, r); }
+    }
+    return [...map.values()];
+  }
+
+  // ---------- UI: lettura input ----------
+  function readInputs() {
+    const num = (id, d) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : d; };
+    P.K = Math.max(1, num("K", DEFAULTS.K));
+    P.shareA = Math.min(100, Math.max(0, num("shareA", 50)));
+    P.target = num("target", 0);
+    P.pwin = Math.min(100, Math.max(0, num("pwin", 50)));
+    P.N = +document.querySelector("input[name=N]:checked").value;
+    P.mode = document.querySelector("input[name=mode]:checked").value;
+    P.stopTarget = $("stopTarget").checked;
+    P.hedgeEnd = $("hedgeEnd").checked;
+    for (const k of ["A", "B"]) {
+      P[k] = { bonus: Math.max(0, num(k + "-bonus", 0)), risk: Math.min(100, Math.max(0, num(k + "-risk", 0))), pay: Math.max(0, num(k + "-pay", 0)),
+        loss: Math.min(100, Math.max(0, num(k + "-loss", 100))), so: Math.min(100, Math.max(0, num(k + "-so", 0))), reg: $(k + "-reg").value };
+    }
+  }
+  function writeInputs() {
+    $("K").value = P.K; $("shareA").value = P.shareA; $("target").value = P.target; $("pwin").value = P.pwin;
+    $("N" + P.N).checked = true; $(P.mode === "hedge" ? "mode-h" : "mode-i").checked = true;
+    $("stopTarget").checked = P.stopTarget; $("hedgeEnd").checked = P.hedgeEnd;
+    for (const k of ["A", "B"]) for (const f of ["bonus", "risk", "pay", "loss", "so", "reg"]) $(k + "-" + f).value = P[k][f];
+  }
+
+  // ---------- render ----------
+  const endPill = (r) => {
+    if (r.end === "target") return '<span class="pill target">Obiettivo</span>';
+    if (r.end.startsWith("stop")) return `<span class="pill stop">Stop-out ${r.end.slice(4)}</span>`;
+    return '<span class="pill done">Completata</span>';
+  };
+  function chipsHTML(r, N) {
+    let h = '<div class="seqchips"><div class="seqlbl"><span>A</span><span>B</span></div>';
+    for (let i = 0; i < N; i++) {
+      const x = r.played[i];
+      const a = x ? x.a : "", b = x ? x.b : "";
+      const t = (v) => v === "W" ? '<span class="chip W" title="vincente">V</span>' : v === "L" ? '<span class="chip L" title="perdente">P</span>'
+        : '<span class="chip X" title="non giocato">·</span>';
+      h += `<div class="seqcol">${t(a)}${t(b)}</div>`;
+    }
+    return h + "</div>";
+  }
+
+  let rows = [], top5 = [];
+  function render() {
+    readInputs(); save();
+    $("mode-hint").textContent = P.mode === "hedge"
+      ? `A e B in direzioni opposte: ${2 ** P.N} sequenze.` : `Esiti di A e B liberi: ${4 ** P.N} combinazioni.`;
+    $("hedgeEnd").disabled = P.mode !== "hedge";
+    const res = enumerate(P);
+    const evFinal = res.reduce((s, r) => s + r.prob * r.final, 0);
+    const pHit = res.reduce((s, r) => s + (r.hit ? r.prob : 0), 0);
+    const hits = res.filter((r) => r.hit);
+    const best = res.reduce((b, r) => (r.final > b.final ? r : b), res[0]);
+    const worst = res.reduce((b, r) => (r.final < b.final ? r : b), res[0]);
+    const init = initAccounts(P);
+
+    $("kpis").innerHTML = [
+      ["Equity iniziale", usd(init[0].eq0 + init[1].eq0), `A ${usd(init[0].eq0)} · B ${usd(init[1].eq0)} · bonus ${usd(init[0].cred + init[1].cred)}`],
+      ["Sequenze a obiettivo", `${hits.length} / ${res.length}`, `obiettivo ${sgn(P.target)} (${pct(P.target / P.K)})`],
+      ["Probabilità obiettivo", pct(pHit), `con P(vincita A) ${P.pwin}%`],
+      ["Miglior risultato", `<span class="${cls(best.final)}">${sgn(best.final)}</span>`, `${pct(best.final / P.K)} in ${best.played.length} trade`],
+      ["Peggior risultato", `<span class="${cls(worst.final)}">${sgn(worst.final)}</span>`, `${pct(worst.final / P.K)} in ${worst.played.length} trade`],
+      ["Risultato atteso", `<span class="${cls(evFinal)}">${sgn(evFinal)}</span>`, "media pesata per probabilità"],
+    ].map(([l, v, d]) => `<div class="kpi"><span class="label">${l}</span><span class="v">${v}</span><span class="d">${d}</span></div>`).join("");
+
+    // ordinamento e filtro
+    const sort = $("sort").value;
+    const cmp = {
+      final: (a, b) => b.final - a.final || b.prob - a.prob,
+      worst: (a, b) => b.minWd - a.minWd || b.final - a.final,
+      prob: (a, b) => b.prob - a.prob || b.final - a.final,
+      len: (a, b) => a.played.length - b.played.length || b.final - a.final,
+    }[sort];
+    rows = res.slice().sort(cmp);
+    if ($("onlyHit").checked) rows = rows.filter((r) => r.hit);
+    top5 = rows.slice(0, 5);
+    if (!selectedKey || !res.find((r) => r.key === selectedKey)) selectedKey = null;
+
+    // tabella
+    const N = P.N;
+    let th = '<tr><th>#</th><th>Sequenza</th><th>Esito</th>';
+    th += '<th class="num">Inizio</th>';
+    for (let i = 1; i <= N; i++) th += `<th class="num">Dopo T${i}</th>`;
+    th += '<th class="num">Risultato</th><th class="num">ROI</th><th class="num">Profitti</th><th class="num">Perdite</th><th class="num">Bonus residuo</th><th class="num">Minimo</th><th class="num">Prob.</th></tr>';
+    $("cmp").tHead.innerHTML = th;
+    const limit = 200;
+    $("cmp").tBodies[0].innerHTML = rows.slice(0, limit).map((r, idx) => {
+      let tds = `<td class="num">${idx + 1}</td><td>${chipsHTML(r, N)}</td><td>${endPill(r)}</td><td class="num">${usd(r.steps[0].wd)}</td>`;
+      for (let i = 1; i <= N; i++) {
+        const s = r.steps[i];
+        tds += s ? `<td class="num ${s.wd - P.K >= P.target ? "hit" : ""}">${usd(s.wd)}</td>` : '<td class="num" style="color:var(--ink-2)">—</td>';
+      }
+      tds += `<td class="num ${cls(r.final)}"><b>${sgn(r.final)}</b></td><td class="num ${cls(r.final)}">${pct(r.final / P.K)}</td>`;
+      tds += `<td class="num pos">${usd(r.gain)}</td><td class="num neg">${usd(r.loss)}</td><td class="num">${usd(r.cred)}</td>`;
+      tds += `<td class="num">${usd(r.minWd)}</td><td class="num">${pct(r.prob, 2)}</td>`;
+      return `<tr data-key="${r.key}" class="${r.key === selectedKey ? "rowsel" : ""}" tabindex="0">${tds}</tr>`;
+    }).join("") || `<tr><td colspan="${N + 11}" class="note">Nessuna sequenza raggiunge l'obiettivo con questi parametri. Abbassa l'obiettivo o modifica rischio, payout o bonus.</td></tr>`;
+    $("cmp-note").textContent = `${res.length} percorsi distinti${rows.length > limit ? `, mostrati i primi ${limit}` : ""}. Valori = capitale prelevabile (bonus escluso) dopo ogni trade; in verde i passaggi oltre l'obiettivo. Clicca una riga per vederne il dettaglio.`;
+
+    renderChart();
+    renderManual();
+  }
+
+  // ---------- grafico ----------
+  function renderChart() {
+    const N = P.N, W = 760, H = 300, m = { l: 64, r: 16, t: 14, b: 34 };
+    const series = top5.map((r, i) => ({ r, color: `var(--s${i + 1})`, name: `#${i + 1}` }));
+    const man = simulate(P, manual.slice(0, N));
+    series.push({ r: man, color: "var(--ink)", name: "Manuale", dash: "5 4" });
+    const ys = series.flatMap((s) => s.r.steps.map((x) => x.wd)).concat([P.K + P.target, P.K]);
+    let y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const pad = (y1 - y0) * 0.08 || 100; y0 = Math.max(0, y0 - pad); y1 += pad;
+    const X = (i) => m.l + (W - m.l - m.r) * i / N;
+    const Y = (v) => m.t + (H - m.t - m.b) * (1 - (v - y0) / (y1 - y0));
+    const ticks = niceTicks(y0, y1, 5);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Capitale prelevabile per trade">`;
+    for (const t of ticks) svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--line)" stroke-width="1"/><text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${usd(t)}</text>`;
+    for (let i = 0; i <= N; i++) svg += `<text x="${X(i)}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--ink-2)" font-family="IBM Plex Mono, monospace">${i === 0 ? "Inizio" : "T" + i}</text>`;
+    const yt = Y(P.K + P.target), yk = Y(P.K);
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${yk}" y2="${yk}" stroke="var(--ink-2)" stroke-width="1"/>`;
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${yt}" y2="${yt}" stroke="var(--win)" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+    svg += `<text x="${m.l + 6}" y="${yt - 6}" text-anchor="start" font-size="11" fill="var(--win)" font-family="IBM Plex Sans, sans-serif">Obiettivo ${usd(P.K + P.target)}</text>`;
+    series.slice().reverse().forEach((s) => {
+      const pts = s.r.steps.map((x) => `${X(x.i)},${Y(x.wd)}`).join(" ");
+      const sel = s.r.key && s.r.key === selectedKey;
+      svg += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="${sel ? 3.5 : 2}" stroke-linejoin="round" stroke-linecap="round" ${s.dash ? `stroke-dasharray="${s.dash}"` : ""}/>`;
+      s.r.steps.forEach((x) => {
+        svg += `<circle cx="${X(x.i)}" cy="${Y(x.wd)}" r="4.5" fill="${s.color}" stroke="var(--panel)" stroke-width="2"/>`;
+        svg += `<circle cx="${X(x.i)}" cy="${Y(x.wd)}" r="11" fill="transparent" data-tip="${s.name} · ${x.i === 0 ? "Inizio" : "T" + x.i}\nPrelevabile ${usd(x.wd)}\nRisultato ${sgn(x.wd - P.K)}\nBonus residuo ${usd(x.cred)}"/>`;
+      });
+    });
+    svg += "</svg>";
+    $("chart").innerHTML = svg;
+    $("legend").innerHTML = series.map((s) => `<span><i style="background:${s.color}"></i>${s.name}${s.r.key ? " " + endText(s.r) : ""} ${sgn(s.r.final)}</span>`).join("");
+    $("chart-note").textContent = "Prime 5 sequenze della tabella + sequenza manuale";
+  }
+  const endText = (r) => r.end === "target" ? "(obiettivo)" : r.end.startsWith("stop") ? `(stop-out ${r.end.slice(4)})` : "(completata)";
+  function niceTicks(a, b, n) {
+    const span = b - a, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
+    const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= step0);
+    const out = []; for (let v = Math.ceil(a / step) * step; v <= b; v += step) out.push(v); return out;
+  }
+
+  // ---------- sequenza manuale ----------
+  function renderManual() {
+    const N = P.N, hedge = P.mode === "hedge";
+    let h = "";
+    for (let i = 0; i < N; i++) {
+      const s = manual[i];
+      const bVal = hedge ? (s.a === "W" ? "L" : "W") : s.b;
+      const btn = (acc, v, dis) => `<button type="button" class="${v}" data-i="${i}" data-acc="${acc}" ${dis ? "disabled" : ""}>${acc.toUpperCase()} ${v === "W" ? "vince" : "perde"}</button>`;
+      h += `<div class="tcell"><span class="label">Trade ${i + 1}</span><div class="tog">${btn("a", s.a, false)}</div><div class="tog">${btn("b", bVal, hedge)}</div></div>`;
+    }
+    $("trades").innerHTML = h;
+    const r = simulate(P, manual.slice(0, N));
+    $("detail").tHead.innerHTML = `<tr><th>Trade</th><th>Conto</th><th>Esito</th><th class="num">Stake</th><th class="num">P/L</th><th class="num">Balance</th><th class="num">Bonus</th><th class="num">Equity</th><th>Stato</th><th class="num">Prelevabile tot.</th><th class="num">Risultato</th></tr>`;
+    let b = "";
+    r.steps.forEach((s) => {
+      s.acc.forEach((a, k) => {
+        const first = k === 0;
+        b += `<tr>${first ? `<td rowspan="2" class="num">${s.i === 0 ? "Inizio" : "T" + s.i}</td>` : ""}<td>${k ? "B" : "A"}</td>`;
+        b += `<td>${a.out === "W" ? '<span class="chip W">V</span>' : a.out === "L" ? '<span class="chip L">P</span>' : "—"}</td>`;
+        b += `<td class="num">${a.stake ? usd(a.stake, 2) : "—"}</td><td class="num ${cls(a.pl)}">${a.pl ? sgn(a.pl, 2) : "—"}</td>`;
+        b += `<td class="num">${usd(a.bal, 2)}</td><td class="num">${usd(a.cred, 2)}</td><td class="num">${usd(a.eq, 2)}</td>`;
+        b += `<td>${a.st === "STOP-OUT" ? '<span class="pill stop">Stop-out</span>' : a.st}</td>`;
+        if (first) b += `<td rowspan="2" class="num">${usd(s.wd, 2)}</td><td rowspan="2" class="num ${cls(s.wd - P.K)}"><b>${sgn(s.wd - P.K, 2)}</b></td>`;
+        b += "</tr>";
+      });
+    });
+    b += `<tr><td colspan="11" class="note">Esito: ${endText(r).replace(/[()]/g, "")} dopo ${r.played.length} trade · risultato ${sgn(r.final, 2)} (${pct(r.final / P.K)}) · obiettivo ${r.hit ? "raggiunto" : "non raggiunto"} · probabilità ${pct(r.prob, 2)}${r.played.length < N ? " · i trade successivi non vengono eseguiti" : ""}</td></tr>`;
+    $("detail").tBodies[0].innerHTML = b;
+  }
+
+  // ---------- eventi ----------
+  document.querySelector("aside.ctrl").addEventListener("input", () => { render(); });
+  document.querySelector("aside.ctrl").addEventListener("change", () => { render(); });
+  $("sort").addEventListener("change", render);
+  $("onlyHit").addEventListener("change", render);
+  $("btn-reset").addEventListener("click", () => { P = structuredClone(DEFAULTS); manual = defaultManual(); selectedKey = null; writeInputs(); render(); });
+  $("trades").addEventListener("click", (e) => {
+    const t = e.target.closest("button[data-i]"); if (!t || t.disabled) return;
+    const i = +t.dataset.i, acc = t.dataset.acc;
+    manual[i][acc] = manual[i][acc] === "W" ? "L" : "W";
+    if (P.mode === "hedge") manual[i].b = manual[i].a === "W" ? "L" : "W";
+    selectedKey = null; render();
+  });
+  $("alt1").addEventListener("click", () => { manual = manual.map((_, i) => ({ a: i % 2 ? "L" : "W", b: i % 2 ? "W" : "L" })); selectedKey = null; render(); });
+  $("alt2").addEventListener("click", () => { manual = manual.map((_, i) => ({ a: i % 2 ? "W" : "L", b: i % 2 ? "L" : "W" })); selectedKey = null; render(); });
+  function pickRow(tr) {
+    const r = rows.find((x) => x.key === tr.dataset.key); if (!r) return;
+    selectedKey = r.key;
+    manual = Array.from({ length: 5 }, (_, i) => {
+      const s = r.seq[i] || manual[i];
+      return { a: s.a, b: P.mode === "hedge" ? (s.a === "W" ? "L" : "W") : s.b };
+    });
+    render();
+    document.querySelector(".builder").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }
+  $("cmp").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-key]"); if (tr) pickRow(tr); });
+  $("cmp").addEventListener("keydown", (e) => { if (e.key === "Enter") { const tr = e.target.closest("tr[data-key]"); if (tr) pickRow(tr); } });
+  const tip = $("tip");
+  $("chart").addEventListener("pointermove", (e) => {
+    const c = e.target.closest("[data-tip]");
+    if (!c) { tip.hidden = true; return; }
+    tip.textContent = c.dataset.tip; tip.hidden = false;
+    const x = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+  });
+  $("chart").addEventListener("pointerleave", () => { tip.hidden = true; });
+
+  writeInputs();
+  render();
+})();
+</script>
+</body>
+</html>
